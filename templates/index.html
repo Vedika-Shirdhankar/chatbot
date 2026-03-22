@@ -87,7 +87,10 @@
 <h2>🤖 InfraTrack AI Assistant</h2>
 
 <div id="chatbox"></div>
-
+<div style="margin-bottom: 10px;">
+    <input type="file" id="pdfFile" accept="application/pdf" />
+    <button onclick="uploadPDF()">Upload PDF</button>
+</div>
 <div id="input-area">
     <input id="input" placeholder="Ask something..." />
     <button onclick="sendMessage()">Send</button>
@@ -96,6 +99,7 @@
 <div id="loader">AI is typing...</div>
 
 <script>
+
 async function sendMessage() {
     let input = document.getElementById("input");
     let message = input.value.trim();
@@ -105,12 +109,8 @@ async function sendMessage() {
     let chatbox = document.getElementById("chatbox");
     let loader = document.getElementById("loader");
 
-    // Show user message
     chatbox.innerHTML += `<div class="message user"><b>You:</b> ${message}</div>`;
-
     input.value = "";
-
-    // Show loader
     loader.style.display = "block";
 
     try {
@@ -124,13 +124,9 @@ async function sendMessage() {
 
         let data = await response.json();
 
-        // Hide loader
         loader.style.display = "none";
 
-        // Show AI response
         chatbox.innerHTML += `<div class="message ai"><b>AI:</b> ${data.response}</div>`;
-
-        // Auto scroll
         chatbox.scrollTop = chatbox.scrollHeight;
 
     } catch (error) {
@@ -138,7 +134,39 @@ async function sendMessage() {
         chatbox.innerHTML += `<div style="color:red;">Error connecting to server</div>`;
     }
 }
-</script>
 
+
+// ✅ KEEP THIS OUTSIDE
+async function uploadPDF() {
+    console.log("UPLOAD CLICKED");  // debug
+
+    const fileInput = document.getElementById("pdfFile");
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please select a PDF file");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch("/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+        alert(data.message);
+
+    } catch (error) {
+        console.error(error);
+        alert("Upload failed");
+    }
+}
+
+
+</script>
 </body>
 </html> 

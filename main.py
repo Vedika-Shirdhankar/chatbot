@@ -1,74 +1,83 @@
-from flask import Flask, render_template, request, jsonify
-from rag import generate_response, set_pdf_text
-from file_handler import extract_text_from_pdf
+from fastapi import FastAPI, Request, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 import os
 
-app = Flask(__name__)
+from rag import generate_response, set_pdf_text
+from file_handler import extract_text_from_pdf
 
-# create uploads folder if not exists
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# Home route
-@app.route("/")
-def home():
-    return render_template("index.html")
+# HOME ROUTE
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-# Chat API
-@app.route("/chat", methods=["POST"])
-def chat():
+# CHAT API
+@app.post("/chat")
+async def chat(request: Request):
     try:
-        data = request.get_json()
+        data = await request.json()
 
         if not data or "message" not in data:
-            return jsonify({"response": "No message received"})
+            return JSONResponse(content={"response": "No message received"})
 
         user_input = data["message"]
 
-        print("User:", user_input)
+        print("\n--- USER QUESTION ---")
+        print(user_input)
 
         response = generate_response(user_input)
 
-        print("AI:", response)
+        print("\n--- AI RESPONSE ---")
+        print(response)
 
-        return jsonify({"response": response})
+        return JSONResponse(content={"response": response})
 
     except Exception as e:
-        print("ERROR:", e)
-        return jsonify({"response": f"Error: {str(e)}"})
+        print("CHAT ERROR:", e)
+        return JSONResponse(content={"response": f"Error: {str(e)}"})
 
 
-# ✅ NEW: File Upload Route
-@app.route("/upload", methods=["POST"])
-def upload_file():
+# FILE UPLOAD API
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
     try:
-        file = request.files.get("file")
-
-        if not file:
-            return jsonify({"message": "No file uploaded"})
+        if not file.filename.endswith(".pdf"):
+            return JSONResponse(content={"message": "❌ Only PDF files allowed"})
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(filepath)
 
-        print("File saved:", filepath)
+        with open(filepath, "wb") as f:
+            f.write(await file.read())
 
-        # extract text
+        print("\n=== FILE UPLOADED ===")
+        print("Path:", filepath)
+
+        # Extract text
         text = extract_text_from_pdf(filepath)
 
-        print("Extracted text length:", len(text))
+        print("\n=== EXTRACTED TEXT PREVIEW ===")
+        print(text[:500])
+        print("=== END PREVIEW ===\n")
 
-        # store for RAG
+        if not text or text.strip() == "" or "No text found" in text:
+            return JSONResponse(content={
+                "message": "⚠️ Could not extract text from this PDF. Try another file."
+            })
+
         set_pdf_text(text)
 
-        return jsonify({"message": "PDF uploaded and processed successfully"})
+        return JSONResponse(content={
+            "message": "✅ PDF uploaded & processed successfully! Ask questions now."
+        })
 
     except Exception as e:
         print("UPLOAD ERROR:", e)
-        return jsonify({"message": f"Error: {str(e)}"})
-
-
-# Run app
-if __name__ == "__main__":
-    app.run(debug=True)
+        return JSONResponse(content={"message": f"Error: {str(e)}"})
