@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import os
 
-from rag import generate_response, set_pdf_text
+from rag import generate_response, set_pdf_text, clear_pdf_text
 from file_handler import extract_text_from_pdf
 
 app = FastAPI()
@@ -81,3 +81,19 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         print("UPLOAD ERROR:", e)
         return JSONResponse(content={"message": f"Error: {str(e)}"})
+
+
+# CLEAR DATA API
+@app.post("/clear")
+async def clear_data():
+    try:
+        clear_pdf_text()
+
+        return JSONResponse(content={
+            "message": "✅ Document cleared. Now asking general questions."
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "message": f"Error: {str(e)}"
+        })
